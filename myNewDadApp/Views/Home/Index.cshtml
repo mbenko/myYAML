@@ -1,0 +1,42 @@
+﻿@using Microsoft.Extensions.Configuration
+@inject IConfiguration Config
+@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Welcome</h1>
+    <p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+</div>
+
+<h2 class="jumbotron" id="weather">Loading from @Config["WeatherURI"]...</h2>
+
+<div class='alert alert-warning'>
+    <h3>Environment <b>@Config["EnvName"]</b></h3>
+    <hr /><b>Machine:</b> @System.Environment.MachineName
+    <br /><b>OS:</b> @System.Environment.OSVersion
+    <br /><b>Framework:</b> @System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription
+    <br /><b>Weather URI:</b> @Config["WeatherURI"]
+</div>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<script type="text/javascript">
+    $(document).ready(function () {
+
+        $.ajax({
+            type: 'GET',
+            url: '@Config["WeatherURI"]',
+            dataType: 'json',
+            success: function (msg) {
+                var myWeather = "<h3><b>myAPI</b> Forcast...<h3><ul>";
+                msg.forEach(obj => { myWeather += "<li>" + obj.date + "  -->  " + obj.summary + "</li>" });
+                myWeather += "</ul>";
+                $('#weather').html(myWeather);
+
+            },
+            error: function (request, status, error) {
+                $('#joke').html("Error getting joke");
+            }
+        });
+    });
+</script>

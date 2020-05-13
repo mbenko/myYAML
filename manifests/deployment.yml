@@ -1,0 +1,16 @@
+apiVersion : apps/v1beta1
+kind: Deployment
+metadata:
+  name: mynewdadapp 
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mynewdadapp 
+    spec:
+      containers:
+        - name: mynewdadapp 
+          image: bnkacr.azurecr.io/mynewdadapp
+          ports:
+          - containerPort: 80

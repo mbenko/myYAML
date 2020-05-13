@@ -1,0 +1,63 @@
+name: CreateLandingZone
+# No CI Trigger
+trigger: none
+
+variables:
+  DEVOPS_ORGANIZATION_URL: https://dev.azure.com/imademo
+  DEVOPS_PROJECT_NAME: $(APP_NAME)
+
+stages:
+- stage: Azure_DevOps
+  jobs:
+  - job: Create_Azure_DevOps_Project
+    pool:
+      vmImage: 'ubuntu-18.04'    
+    steps:
+      - bash: |
+          set -euxo pipefail
+
+          echo "---> Set_Vars"
+
+          echo "Checking required pipeline variables. These must be supplied as pipeline variables."
+          NOW=$(date +%m%d)
+          RG_NAME=lz-$(APP_NAME)-$NOW
+          DEVOPS_PROJECT_NAME=lz-$(APP_NAME)-$NOW
+
+          echo RG_NAME=$RG_NAME
+          echo DEVOPS_PROJECT_NAME=$DEVOPS_PROJECT_NAME
+          echo PROJECT_ADMINISTRATOR_EMAIL=$PROJECT_ADMINISTRATOR_EMAIL
+
+          echo "---> Create_Azure_RG"
+
+          # create resource group
+          az login --service-principal --user $ARM_CLIENT_ID --password $(ARM_CLIENT_SECRET) --tenant $ARM_TENANT_ID
+          az group create --location "centralus" --name $RG_NAME --subscription $ARM_SUBSCRIPTION_ID --tags costCenter=Demos CreatedBy=ImaDevOps owner=$PROJECT_ADMINISTRATOR_EMAIL created=$(Build.BuildNumber)
+
+
+          echo "---> Create_DevOps_Project"
+
+          # log into devops
+          az extension add --name azure-devops
+          echo $(DEV_PAT) | az devops login --org $DEVOPS_ORGANIZATION_URL
+
+          az devops project list --org $DEVOPS_ORGANIZATION_URL --output table
+
+          # get project id to check if it exists
+          project_id=$(az devops project list --org $DEVOPS_ORGANIZATION_URL --query "[?name=='$DEVOPS_PROJECT_NAME'].id" --output tsv)
+          
+          # create project
+          if [ -z $project_id ]
+          then
+             az devops project create --name "$DEVOPS_PROJECT_NAME" --source-control git --visibility private --organization $DEVOPS_ORGANIZATION_URL
+          else
+             echo "DevOps Project $DEVOPS_PROJECT_NAME already exists."
+          fi    
+
+          # get group descriptor for administrators of this project
+          groupDescriptor="$(az devops security group list --org $DEVOPS_ORGANIZATION_URL --project "$DEVOPS_PROJECT_NAME" --output json --query "graphGroups[?displayName == 'Project Administrators'].descriptor | [0]" -o tsv)"
+
+          # add user to project group
+          az devops security group membership add --org $DEVOPS_ORGANIZATION_URL --group-id  $groupDescriptor --member-id $PROJECT_ADMINISTRATOR_EMAIL
+          
+        env:
+          AZURE_DEVOPS_CLI_PAT: $(System.AccessToken)

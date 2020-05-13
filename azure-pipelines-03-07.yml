@@ -1,0 +1,89 @@
+# ASP.NET
+# Build and test ASP.NET projects.
+# Add steps that publish symbols, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/apps/aspnet/build-aspnet-4
+
+trigger:
+- none
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  solution: '**/*.sln'
+  buildPlatform: 'Any CPU'
+  buildConfiguration: 'Release'
+
+stages:
+- stage: BuildIt
+  jobs:
+  - job: BuildTheCode
+    steps:
+    - task: NuGetToolInstaller@1
+
+    - task: NuGetCommand@2
+      inputs:
+        restoreSolution: '$(solution)'
+
+    - task: replacetokens@3
+      inputs:
+        targetFiles: '**/*.cshtml'
+        encoding: 'auto'
+        writeBOM: true
+        actionOnMissing: 'warn'
+        keepToken: false
+        tokenPrefix: '#{'
+        tokenSuffix: '}#'
+        useLegacyPattern: false
+        enableTelemetry: true
+
+    - task: VSBuild@1
+      inputs:
+        solution: '$(solution)'
+        msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(build.artifactStagingDirectory)"'
+        platform: '$(buildPlatform)'
+        configuration: '$(buildConfiguration)'
+
+    - task: VSTest@2
+      inputs:
+        platform: '$(buildPlatform)'
+        configuration: '$(buildConfiguration)'
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+
+- stage: TestDeployment
+  jobs:
+  - job: PublishTheCode
+    steps:
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        artifactName: 'drop'
+        downloadPath: '$(System.ArtifactsDirectory)'
+
+    - task: AzureResourceManagerTemplateDeployment@3
+      inputs:
+        deploymentScope: 'Resource Group'
+        azureResourceManagerConnection: 'FY20-ImaDemo (b8c7d821-4fbb-4089-8978-b966512a6a45)'
+        subscriptionId: 'b8c7d821-4fbb-4089-8978-b966512a6a45'
+        action: 'Create Or Update Resource Group'
+        resourceGroupName: 'lz-yaml'
+        location: 'Central US'
+        templateLocation: 'Linked artifact'
+        csmFile: '$(System.ArtifactsDirectory)/**/WebAppWithSlots-Windows.json'
+        csmParametersFile: '$(System.ArtifactsDirectory)/**/azuredeploy.parameters.json'
+        overrideParameters: '-appName bnkYAML'
+        deploymentMode: 'Incremental'
+
+    - task: AzureRmWebAppDeployment@4
+      inputs:
+        ConnectionType: 'AzureRM'
+        azureSubscription: 'FY20-ImaDemo (b8c7d821-4fbb-4089-8978-b966512a6a45)'
+        appType: 'webApp'
+        WebAppName: 'bnkYAML'
+        packageForLinux: '$(System.ArtifactsDirectory)/**/*.zip'

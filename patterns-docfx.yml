@@ -1,0 +1,45 @@
+# DocFX Publish pipeline
+# AUTHOR: Mike Benkovich
+# DATE:   8/28/2019
+# Publish documentatation to Web App Service in Azure
+# https://imadocs-poc.azurewebsites.net
+
+trigger:
+- master
+
+pool:
+  vmImage: 'windows-latest'
+
+steps:
+- task: replacetokens@3
+  inputs:
+    targetFiles: 'index.md'
+    encoding: 'auto'
+    writeBOM: true
+    actionOnMissing: 'warn'
+    keepToken: false
+    tokenPrefix: '[#'
+    tokenSuffix: '#]'
+
+- task: chrismason.vsts-docfxtasks.docfx-extension-build-task.DocFxTask@0
+  displayName: 'Create DocFx Documentation'
+  inputs:
+    solution: docfx.json
+    docfxOptions: '-o $(Build.ArtifactStagingDirectory)'
+
+- task: ArchiveFiles@2
+  displayName: 'Archive $(Build.ArtifactStagingDirectory)/_site'
+  inputs:
+    rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/_site'
+    includeRootFolder: false
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact: drop'
+
+- task: AzureRmWebAppDeployment@4
+  inputs:
+    ConnectionType: 'AzureRM'
+    azureSubscription: '$(ARM_SUBSCRIPTION)'
+    appType: 'webApp'
+    WebAppName: '$(WEBAPP_NAME)'
+    packageForLinux: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'

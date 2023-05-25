@@ -4,7 +4,10 @@
 # https://docs.microsoft.com/azure/devops/pipelines/apps/aspnet/build-aspnet-4
 
 trigger:
-- none
+ batch: true
+ branches:
+     include:
+         - '*'
 
 pool:
   name: New Agent Pool
@@ -12,7 +15,7 @@ pool:
    - agent.name -equals Build Agent A
 
 variables:
-  solution: '**/*.sln'
+  solution: '**/myNewDadApp.csproj'
   buildPlatform: 'Any CPU'
   buildConfiguration: 'Release'
 

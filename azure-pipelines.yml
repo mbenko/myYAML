@@ -7,7 +7,9 @@ trigger:
 - none
 
 pool:
-  vmImage: 'windows-latest'
+  name: New Agent Pool
+  demands:
+   - agent.name -equals Build Agent A
 
 variables:
   solution: '**/*.sln'

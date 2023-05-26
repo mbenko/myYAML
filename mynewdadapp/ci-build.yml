@@ -1,0 +1,95 @@
+# ASP.NET
+# Build and test ASP.NET projects.
+# Add steps that publish symbols, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/apps/aspnet/build-aspnet-4
+
+trigger:
+ batch: true
+ branches:
+     include:
+         - '*'
+
+pool:
+  name: New Agent Pool
+  demands:
+   - agent.name -equals Build Agent A
+
+variables:
+  solution: '**/$(projectName).csproj'
+  buildPlatform: 'Any CPU'
+  buildConfiguration: 'Release'
+
+stages:
+- stage: BuildIt
+  jobs:
+  - job: BuildTheCode
+    steps:
+    - task: NuGetToolInstaller@1
+
+    - task: NuGetCommand@2
+      inputs:
+        restoreSolution: '$(solution)'
+
+    - task: replacetokens@3
+      inputs:
+        targetFiles: '**/*.cshtml'
+        encoding: 'auto'
+        writeBOM: true
+        actionOnMissing: 'warn'
+        keepToken: false
+        tokenPrefix: '#{'
+        tokenSuffix: '}#'
+        useLegacyPattern: false
+        enableTelemetry: true
+
+    - task: VSBuild@1
+      inputs:
+        solution: '$(solution)'
+        msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(build.artifactStagingDirectory)"'
+        platform: '$(buildPlatform)'
+        configuration: '$(buildConfiguration)'
+
+    - task: VSTest@2
+      inputs:
+        platform: '$(buildPlatform)'
+        configuration: '$(buildConfiguration)'
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+
+- stage: TestDeployment
+  jobs:
+  - job: PublishTheCode
+    steps:
+
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        artifactName: 'drop'
+        downloadPath: '$(System.ArtifactsDirectory)'
+
+    - task: AzureResourceManagerTemplateDeployment@3
+      inputs:
+        deploymentScope: 'Resource Group'
+        azureResourceManagerConnection: 'Azure subscription 1(7)(448be658-9ed6-4730-9efc-7ca3552ed71b)'
+        subscriptionId: '448be658-9ed6-4730-9efc-7ca3552ed71b'
+        action: 'Create Or Update Resource Group'
+        resourceGroupName: 'lz-yaml'
+        location: 'Central US'
+        templateLocation: 'Linked artifact'
+        csmFile: '$(System.ArtifactsDirectory)/**/WebAppWithSlots-Windows.json'
+        csmParametersFile: '$(System.ArtifactsDirectory)/**/azuredeploy.parameters.json'
+        overrideParameters: '-appName bnkYAML'
+        deploymentMode: 'Incremental'
+
+    - task: AzureRmWebAppDeployment@4
+      inputs:
+        ConnectionType: 'AzureRM'
+        azureSubscription: 'Azure subscription 1(8)(448be658-9ed6-4730-9efc-7ca3552ed71b)'
+        appType: 'webApp'
+        WebAppName: 'bnkYAML'
+        packageForLinux: '$(System.ArtifactsDirectory)/**/*.zip'

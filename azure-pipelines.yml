@@ -7,7 +7,9 @@ trigger:
 - none
 
 pool:
-  vmImage: 'windows-latest'
+  name: New Agent Pool
+  demands:
+   - agent.name -equals Build Agent A
 
 variables:
   solution: '**/*.sln'
@@ -59,6 +61,7 @@ stages:
   jobs:
   - job: PublishTheCode
     steps:
+
     - task: DownloadBuildArtifacts@0
       inputs:
         buildType: 'current'
@@ -69,7 +72,7 @@ stages:
     - task: AzureResourceManagerTemplateDeployment@3
       inputs:
         deploymentScope: 'Resource Group'
-        azureResourceManagerConnection: 'FY20-ImaDemo (b8c7d821-4fbb-4089-8978-b966512a6a45)'
+        azureResourceManagerConnection: 'FY20-ImaDemo(b8c7d821-4fbb-4089-8978-b966512a6a45)'
         subscriptionId: 'b8c7d821-4fbb-4089-8978-b966512a6a45'
         action: 'Create Or Update Resource Group'
         resourceGroupName: 'lz-yaml'
@@ -83,7 +86,7 @@ stages:
     - task: AzureRmWebAppDeployment@4
       inputs:
         ConnectionType: 'AzureRM'
-        azureSubscription: 'FY20-ImaDemo (b8c7d821-4fbb-4089-8978-b966512a6a45)'
+        azureSubscription: 'FY20-ImaDemo(b8c7d821-4fbb-4089-8978-b966512a6a45)'
         appType: 'webApp'
         WebAppName: 'bnkYAML'
-        packageForLinux: '$(System.ArtifactsDirectory)/**/OldDadApp.zip'
+        packageForLinux: '$(System.ArtifactsDirectory)/**/*.zip'

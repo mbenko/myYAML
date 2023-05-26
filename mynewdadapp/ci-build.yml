@@ -15,7 +15,7 @@ pool:
    - agent.name -equals Build Agent A
 
 variables:
-  solution: '**/myNewDadApp.csproj'
+  solution: '**/$(projectName).csproj'
   buildPlatform: 'Any CPU'
   buildConfiguration: 'Release'
 
